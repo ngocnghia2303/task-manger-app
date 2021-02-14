@@ -1,0 +1,17 @@
+2. Nguyên nhân cần dùng biến môi trường:
+- Bảo mật
+- Dễ customize
+
+
+tạo trong thư mục root/config file dev.env
+=> PORT
+
+Sử dụng env-cmd - npm
+=> package json thay
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "env-cmd -f ./config/dev.env nodemon src/index.js"
+  },
+
+3.Tạo biến môi trường JWT_SECRET & MONGODB_URL
+Goal: Pull secret JWT and Database URL into env var

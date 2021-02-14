@@ -1,12 +1,19 @@
 const express = require('express')
+const multer = require('multer')
 const { update } = require('../models/user')
+const { sendWelcomeEmail, sendCancelationEmail } = require('../emails/account.js')
 const User = require('../models/user')
 const auth = require('../middleware/auth')
 const router = new express.Router()
+const sharp = require('sharp')
+
+//GOAL: Create User
 router.post('/users', async (req, res) => {
     const user = new User(req.body)
     try {
         await user.save()
+        //send Email welcome user joining
+        sendWelcomeEmail(user.email, user.name)
         //generate a token for the saved user
         const token = await user.generateAuthToken()
 
@@ -17,72 +24,44 @@ router.post('/users', async (req, res) => {
     return console.log('testing USER done!')
 })
 
+//GOAL: Read my profile
 router.get('/users/me', auth, async (req, res) => {
     //Model method ex: find()
-    // try {
-    //     const users = await User.find({})
-    //     res.send(users)
-    // } catch (error) {
-    //     res.status(500).send(error)
-    // }
     res.send(req.user)
 })
 
-router.get('/users/:id', async (req, res) => {
-    const _id = req.params.id
-    //find user by id. Handler result & errors by Promises
-    try {
-        const user = await User.findById(_id)
-        if (!user) {
-            return res.status(400).send('Please check id user requested')
-        }
-        res.send(user)
-    } catch (error) {
-        res.status(500).send(error)
-    }
-})
-
 //UPDATE HTTP REQUEST
-router.patch('/users/:id', async (req, res) => {
-    //GOAL: Cho phép update document được req bằng _id
-
+router.patch('/users/me', auth, async (req, res) => {
     //Lọc keys (tên thuộc tính)
     const updates = Object.keys(req.body)
-
+    //GOAL: tạo mảng chứa thuộc tính cho phép thay đổi
     const allowedUpdate = ["name", "email", "password", "age"]
-
-    //GOAL: UPDATE doccument dựa trên tên thuộc tính có trong mảng
     //kiểm tra giá trị update có tồn tại trong mảng thuộc tính trên không
     const isValidOperation = updates.every((update) => allowedUpdate.includes(update))
     if (!isValidOperation) {
         return res.status(400).send({ error: 'Invalid update!' })
     }
-    try {
-        //update dynamic => sử dụng req.body
-        const user = await User.findById(req.params.id)
-        updates.forEach((update) => user[update] = req.body[update])
-        await user.save()
 
-        if (!user) {
-            return res.status(404).send('Please check id user requested')
-        }
-        res.send(user)
+    try {
+        updates.forEach((update) => req.user[update] = req.body[update])
+        await req.user.save()
+        res.send(req.user)
     } catch (error) {
         res.status(400).send(error)
     }
 })
 
-
-//GOAL: delete User with http method DELETE. Queries: model.findByIdAndDelete(_id)
-router.delete('/users/:id', async (req, res) => {
+//GOAL: Delete User with http method DELETE. Queries: model.findByIdAndDelete(_id)
+router.delete('/users/me', auth, async (req, res) => {
 
     //handler process errors
     try {
-        const user = await User.findByIdAndDelete(req.params.id)
-        if (!user) {
-            res.status(404).send('Please check id user requested!')
-        }
-        res.send(user)
+
+        //using middleware remove() user tasks
+        await req.user.remove()
+        //send email cancelation user
+        sendCancelationEmail(req.user.email, req.user.name)
+        res.send(req.user)
     } catch (error) {
         res.status(500).send(error)
     }
@@ -99,6 +78,86 @@ router.post('/users/login', async (req, res) => {
     } catch (error) {
         console.log(error)
         res.status(400).send()
+    }
+})
+
+
+//GOAL: Logout user
+router.post('/users/logout', auth, async (req, res) => {
+    try {
+        req.user.tokens = req.user.tokens.filter((token) => {
+            return token.token !== req.token
+        })
+        await req.user.save()
+        res.send()
+    } catch (error) {
+        res.status(500).send(error)
+    }
+})
+
+//GOAL: Logout All
+router.post('/users/logoutAll', auth, async (req, res) => {
+    try {
+        req.user.tokens = []
+        await req.user.save()
+        res.send()
+    } catch (error) {
+        res.status(500).send(error)
+    }
+})
+
+//GOAL: Upload avatar by Multer
+const upload = multer({
+    limits: {
+        fileSize: 1000000
+    },
+    fileFilter(req, file, cb) {
+        if (!file.originalname.match(/\.(jpg|gif|png|tiff|bmp|jpeg )$/)) {
+            return cb(new Error('please upload file images'))
+        }
+        cb(undefined, true)
+    }
+
+})
+
+router.post('/users/me/avatar', auth, upload.single('avatar'), async (req, res) => {
+    const buffer = await sharp(req.file.buffer).resize({
+        width: 250,
+        height: 300
+    }).png().toBuffer()
+    req.user.avatar = buffer
+    await req.user.save()
+    res.send()
+}, (error, req, res, next) => {
+    res.status(400).send({
+        error: error.message
+    })
+})
+
+//GOAL: Setup router Delete /users/me/avatar (note: authentication user)
+router.delete('/users/me/avatar', auth, async (req, res) => {
+    req.user.avatar = undefined
+    await req.user.save()
+    res.send()
+})
+
+//GOAL: GET avatar by id user
+router.get('/users/:id/avatar', async (req, res) => {
+    try {
+        const user = await User.findById(req.params.id)
+        if (!user || !user.avatar) {
+            throw new Error()
+        }
+        /*
+        res.set({ 
+            'Content-Type': 'application/json'
+        }); 
+        */
+        res.set('Content-Type', 'image/png')
+        //output is avatar of user byID
+        res.send(user.avatar)
+    } catch (error) {
+        res.status(404).send(error)
     }
 })
 

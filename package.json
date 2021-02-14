@@ -4,18 +4,25 @@
   "description": "resousre task manager app",
   "main": "mongodb.js",
   "dependencies": {
+    "@sendgrid/mail": "^7.4.2",
     "bcryptjs": "^2.4.3",
     "chalk": "^4.1.0",
+    "dotenv": "^8.2.0",
     "express": "^4.17.1",
     "jsonwebtoken": "^8.5.1",
     "mongodb": "^3.6.2",
     "mongoose": "^5.10.11",
+    "multer": "^1.4.2",
     "nodemon": "^2.0.6",
+    "sharp": "^0.27.0",
     "validator": "^13.1.17"
   },
-  "devDependencies": {},
+  "devDependencies": {
+    "env-cmd": "^10.1.0"
+  },
   "scripts": {
     "start": "node src/index.js",
+    "zing": "env-cmd -f ./config/dev.env nodemon src/index.js",
     "dev": "nodemon src/index.js"
   },
   "keywords": [
