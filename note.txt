@@ -15,3 +15,9 @@ Sử dụng env-cmd - npm
 
 3.Tạo biến môi trường JWT_SECRET & MONGODB_URL
 Goal: Pull secret JWT and Database URL into env var
+
+4. Connection Database
+mongodb+srv://ngocnghia:nghiadeptrai@khoa-pham2020-buqro.gcp.mongodb.net
+
+# Mongodb Compass
+mongodb+srv://ngocnghia:nghiadeptrai@khoa-pham2020.buqro.gcp.mongodb.net/test
